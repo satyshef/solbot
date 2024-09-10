@@ -51,6 +51,11 @@ this.connection.commitment);
 
   private async checkRisk(mint: String) {
     try {
+      // 1
+      const mintOwner = "9YJPtYy1qd77ng1VdwKC52VenweyL5uULRWzu95fUJjg"
+      // 2
+      //const mintOwner = "VLgFg159e7gD8hHB6k8PRAAPoX9nTRTaysuXQ5CUJjg";
+
       const url = `https://api.rugcheck.xyz/v1/tokens/${mint}/report`;
       //const url = `https://tokens.jup.ag/token/${mint}`
       const response = await fetch(url);
@@ -61,7 +66,7 @@ this.connection.commitment);
       const data = await response.json()
       if (data != null ) {
         logger.trace(`OWNER : ${ data.topHolders[0].owner}`)
-        if (data.topHolders[0].owner == "9YJPtYy1qd77ng1VdwKC52VenweyL5uULRWzu95fUJjg"){
+        if (data.topHolders[0].owner == mintOwner){
           return true;
         }
       /*

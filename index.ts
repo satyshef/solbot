@@ -48,6 +48,9 @@ import {
   FILTER_CHECK_DURATION,
   CONSECUTIVE_FILTER_MATCHES,
   WORDS_LIST,
+  TELEGRAM_NOTIFICATION,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID,
 } from './helpers';
 import { version } from './package.json';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -196,6 +199,9 @@ const runListener = async () => {
     checkWords: WORDS_LIST,
     checkMarkets: CHECK_MARKETS,
     marketList: MARKET_LIST,
+    telegramNotification: TELEGRAM_NOTIFICATION,
+    telegramBotToken: TELEGRAM_BOT_TOKEN,
+    telegramChatID: TELEGRAM_CHAT_ID,
   };
 
   const bot = new Bot(connection, marketCache, poolCache, txExecutor, botConfig);
@@ -218,6 +224,7 @@ const runListener = async () => {
     autoSell: AUTO_SELL,
     cacheNewMarkets: CACHE_NEW_MARKETS,
   });
+
 
   listeners.on('market', (updatedAccountInfo: KeyedAccountInfo) => {
     const marketState = MARKET_STATE_LAYOUT_V3.decode(updatedAccountInfo.accountInfo.data);
@@ -246,7 +253,10 @@ const runListener = async () => {
     await bot.sell(updatedAccountInfo.accountId, accountData);
   });
 
+
+
   printDetails(wallet, quoteToken, bot);
 };
+
 
 runListener();

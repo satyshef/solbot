@@ -23,6 +23,7 @@ import { Mutex } from 'async-mutex';
 import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
+import { sendTelegramMessage } from './helpers/telegram';
 
 export interface BotConfig {
   wallet: Keypair;
@@ -55,10 +56,15 @@ export interface BotConfig {
   filterCheckDuration: number;
   consecutiveMatchCount: number;
   checkWords: string[];
+  telegramNotification: boolean,
+  telegramBotToken: string,
+  telegramChatID: string,
 }
 
 export class Bot {
   private readonly poolFilters: PoolFilters;
+
+  private pressSpace: boolean = false;
 
   // snipe list
   private readonly snipeListCache?: SnipeListCache;
@@ -165,12 +171,20 @@ export class Bot {
             'buy',
           );
 
+          
           if (result.confirmed) {
+            const solurl = `https://solscan.io/tx/${result.signature}?cluster=${NETWORK}`
+
+            if (this.config.telegramNotification) {
+              const message = `#BUY\n\n${ poolState.baseMint.toString() }\n\n${ solurl }`
+              sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
+              //logger.info(`${ this.config.telegramBotToken } -- ${ this.config.telegramChatID }`)
+            }
             logger.info(
               {
                 mint: poolState.baseMint.toString(),
                 signature: result.signature,
-                url: `https://solscan.io/tx/${result.signature}?cluster=${NETWORK}`,
+                url: solurl,
               },
               `Confirmed buy tx`,
             );
@@ -231,8 +245,10 @@ export class Bot {
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.id), poolData.state, market);
 
-      await this.priceMatch(tokenAmountIn, poolKeys);
-
+      await this.runListenerSpaceKey();
+      const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
+      this.stopListenerSpaceKey();
+         
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
           logger.info(
@@ -253,6 +269,9 @@ export class Bot {
           );
 
           if (result.confirmed) {
+            const message = `#SELL\n\n${rawAccount.mint.toString()}\n\nPRICE : ${amountOut}`
+            sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
+
             logger.info(
               {
                 dex: `https://dexscreener.com/solana/${rawAccount.mint.toString()}?maker=${this.config.wallet.publicKey}`,
@@ -393,9 +412,9 @@ export class Bot {
     return false;
   }
 
-  private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4) {
+  private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4): Promise<String | undefined>{
     if (this.config.priceCheckDuration === 0 || this.config.priceCheckInterval === 0) {
-      return;
+      return undefined;
     }
 
     const timesToCheck = this.config.priceCheckDuration / this.config.priceCheckInterval;
@@ -429,12 +448,19 @@ export class Bot {
           `Take profit: ${takeProfit.toFixed()} | Stop loss: ${stopLoss.toFixed()} | Current: ${amountOut.toFixed()}`,
         );
 
+        if (this.pressSpace){
+          this.pressSpace = false;
+          return amountOut.toFixed();
+        }
+
         if (amountOut.lt(stopLoss)) {
-          break;
+          //break;
+          return amountOut.toFixed();
         }
 
         if (amountOut.gt(takeProfit)) {
-          break;
+          //break;
+          return amountOut.toFixed();
         }
 
         await sleep(this.config.priceCheckInterval);
@@ -444,5 +470,30 @@ export class Bot {
         timesChecked++;
       }
     } while (timesChecked < timesToCheck);
+  }
+
+
+
+  private async runListenerSpaceKey() {
+      process.stdin.setRawMode(true);  // Включение режима "сырого ввода", чтобы сразу реагировать на нажатие
+      process.stdin.resume();          // Возвращает поток stdin в активный режим
+      process.stdin.setEncoding('utf8'); // Установка кодировки ввода
+
+      process.stdin.removeAllListeners('data');
+      // Слушаем событие data для получения нажатий клавиш
+      process.stdin.on('data', (key: string) => {
+        if (key === ' ') {
+          this.pressSpace = true;
+          //process.stdin.removeAllListeners('data');
+          console.log('Нажата клавиша пробел');
+          return;
+        }
+      });
+  };
+  
+
+  private async stopListenerSpaceKey(){
+      process.stdin.setRawMode(false);  // Возвращаем стандартный режим
+      process.stdin.pause();  // Прекращаем поток stdin 
   }
 }

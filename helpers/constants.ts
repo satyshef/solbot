@@ -69,3 +69,11 @@ export const MIN_POOL_SIZE = retrieveEnvVariable('MIN_POOL_SIZE', logger);
 export const MAX_POOL_SIZE = retrieveEnvVariable('MAX_POOL_SIZE', logger);
 export const USE_SNIPE_LIST = retrieveEnvVariable('USE_SNIPE_LIST', logger) === 'true';
 export const SNIPE_LIST_REFRESH_INTERVAL = Number(retrieveEnvVariable('SNIPE_LIST_REFRESH_INTERVAL', logger));
+
+// Telegram
+export const TELEGRAM_NOTIFICATION = retrieveEnvVariable('TELEGRAM_NOTIFICATION', logger) === 'true';
+export const TELEGRAM_BOT_TOKEN: string = String(retrieveEnvVariable('TELEGRAM_BOT_TOKEN', logger));
+export const TELEGRAM_CHAT_ID: string = String(retrieveEnvVariable('TELEGRAM_CHAT_ID', logger));
+//export const TELEGRAM_BOT_TOKEN = retrieveEnvVariable('TELEGRAM_BOT_TOKEN', logger) === 'true';
+//export const TELEGRAM_CHAT_ID = retrieveEnvVariable('TELEGRAM_CHAT_ID', logger) === 'true';
+
