@@ -5,6 +5,7 @@ import {
   PublicKey,
   TransactionMessage,
   VersionedTransaction,
+  VersionedTransactionResponse
 } from '@solana/web3.js';
 import {
   createAssociatedTokenAccountIdempotentInstruction,
@@ -30,7 +31,7 @@ export interface BotConfig {
   checkRenounced: boolean;
   checkFreezable: boolean;
   checkBurned: boolean;
-  checkMarkets: boolean;
+  checkMinters: boolean;
   marketList: string[];
   minPoolSize: TokenAmount;
   maxPoolSize: TokenAmount;
@@ -113,6 +114,9 @@ export class Bot {
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
+
+    //this.getMintInfo(poolState)
+
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
       return;
@@ -177,8 +181,7 @@ export class Bot {
 
             if (this.config.telegramNotification) {
               const message = `#BUY\n\n${ poolState.baseMint.toString() }\n\n${ solurl }`
-              sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
-              //logger.info(`${ this.config.telegramBotToken } -- ${ this.config.telegramChatID }`)
+              await sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
             }
             logger.info(
               {
@@ -269,8 +272,10 @@ export class Bot {
           );
 
           if (result.confirmed) {
-            const message = `#SELL\n\n${rawAccount.mint.toString()}\n\nPRICE : ${amountOut}`
-            sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
+            if (this.config.telegramNotification) {
+              const message = `#SELL\n\n${rawAccount.mint.toString()}\n\nPRICE : ${amountOut}`;
+              sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message);
+            }
 
             logger.info(
               {
@@ -376,6 +381,7 @@ export class Bot {
 
     return this.txExecutor.executeAndConfirm(transaction, wallet, latestBlockhash);
   }
+
 
   private async filterMatch(poolKeys: LiquidityPoolKeysV4) {
     if (this.config.filterCheckInterval === 0 || this.config.filterCheckDuration === 0) {

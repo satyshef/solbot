@@ -1,7 +1,7 @@
 import { MarketCache, PoolCache } from './cache';
 import { Listeners } from './listeners';
-import { Connection, KeyedAccountInfo, Keypair } from '@solana/web3.js';
-import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3, Token, TokenAmount } from '@raydium-io/raydium-sdk';
+import { Connection, KeyedAccountInfo, Keypair, PublicKey } from '@solana/web3.js';
+import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3, Token, TokenAmount, getPdaMetadataKey } from '@raydium-io/raydium-sdk';
 import { AccountLayout, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { Bot, BotConfig } from './bot';
 import { DefaultTransactionExecutor, TransactionExecutor } from './transactions';
@@ -18,8 +18,8 @@ import {
   CHECK_IF_MINT_IS_RENOUNCED,
   CHECK_IF_FREEZABLE,
   CHECK_IF_BURNED,
-  CHECK_MARKETS,
-  MARKET_LIST,
+  CHECK_MINTERS,
+  MINTERS_LIST,
   QUOTE_MINT,
   MAX_POOL_SIZE,
   MIN_POOL_SIZE,
@@ -197,8 +197,8 @@ const runListener = async () => {
     filterCheckDuration: FILTER_CHECK_DURATION,
     consecutiveMatchCount: CONSECUTIVE_FILTER_MATCHES,
     checkWords: WORDS_LIST,
-    checkMarkets: CHECK_MARKETS,
-    marketList: MARKET_LIST,
+    checkMinters: CHECK_MINTERS,
+    marketList: MINTERS_LIST,
     telegramNotification: TELEGRAM_NOTIFICATION,
     telegramBotToken: TELEGRAM_BOT_TOKEN,
     telegramChatID: TELEGRAM_CHAT_ID,
@@ -257,6 +257,5 @@ const runListener = async () => {
 
   printDetails(wallet, quoteToken, bot);
 };
-
 
 runListener();

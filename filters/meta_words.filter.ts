@@ -22,16 +22,13 @@ export class MetaWordsFilter implements Filter {
   async execute(poolKeys: LiquidityPoolKeysV4): Promise<FilterResult> {
     try {
       const metadataPDA = getPdaMetadataKey(poolKeys.baseMint);
-      const metadataAccount = await this.connection.getAccountInfo(metadataPDA.publicKey, 
-this.connection.commitment);
+      const metadataAccount = await this.connection.getAccountInfo(
+                                        metadataPDA.publicKey, 
+                                        this.connection.commitment
+                                    );
 
       if (!metadataAccount?.data) {
         return { ok: false, message: 'MetaWords -> Failed to fetch account data' };
-      }
-
-      const checkRisk = await this.checkRisk(poolKeys.lpMint.toString());
-      if (checkRisk) {
-        return { ok: true, message: "undefined" };
       }
 
       const deserialize = this.metadataSerializer.deserialize(metadataAccount.data);
@@ -49,56 +46,7 @@ this.connection.commitment);
   }
 
 
-  private async checkRisk(mint: String) {
-    try {
-      // 1
-      const mintOwner = "9YJPtYy1qd77ng1VdwKC52VenweyL5uULRWzu95fUJjg"
-      // 2
-      //const mintOwner = "VLgFg159e7gD8hHB6k8PRAAPoX9nTRTaysuXQ5CUJjg";
-
-      const url = `https://api.rugcheck.xyz/v1/tokens/${mint}/report`;
-      //const url = `https://tokens.jup.ag/token/${mint}`
-      const response = await fetch(url);
-      if (!response.ok) {
-        logger.error(`Fetch ${ url } error ${ response.status }`);
-      } 
-      
-      const data = await response.json()
-      if (data != null ) {
-        logger.trace(`OWNER : ${ data.topHolders[0].owner}`)
-        if (data.topHolders[0].owner == mintOwner){
-          return true;
-        }
-      /*
-      if ('markets' in data && data.markets != null ) {
-        //console.log(`Markets : ${data.markets}`);
-       
-        logger.trace(`Markets : ${data.markets[0].marketType}`);
-        logger.trace('Mint account :', data.markets[0].mintLPAccount.mintAuthority);
-        if ('lp' in data.markets[0] && 'holders' in data.markets[0].lp) {
-          logger.trace('Owner :', data.markets[0].lp.holders[0].owner);
-        }
-
-        logger.trace('*******************************');
-        */
-        
-      } else {
-        logger.trace('Markets : NULL');
-      }
-
-    } catch (error) {
-      logger.error('Check risk error:', error);
-    }
-
-
-
-    return false;
-
-  }
-
-
   private async hasWords(metadata: MetadataAccountData) {
-    //logger.trace(`URL ${metadata.uri}`);
     const response = await fetch(metadata.uri);
     if (!response.ok) {
       logger.error(`Fetch ${ metadata.uri } error ${ response.status }`);
@@ -114,10 +62,8 @@ this.connection.commitment);
         const matches = responseText.match(regex);
         if (!matches) {
           return false;
-          //console.log("FOUND : ",this.checkWords[i]);
         }
     }
-    
     return true;
   }
 

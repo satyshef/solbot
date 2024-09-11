@@ -5,10 +5,10 @@ import { BurnFilter } from './burn.filter';
 import { MutableFilter } from './mutable.filter';
 import { RenouncedFreezeFilter } from './renounced.filter';
 import { PoolSizeFilter } from './pool-size.filter';
-import { MarketFilter } from './market.filter';
+import { MintersFilter } from './minter.filter';
 import { MetaWordsFilter } from './meta_words.filter';
 
-import { CHECK_IF_BURNED, CHECK_IF_FREEZABLE, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_MUTABLE, CHECK_META_WORDS, CHECK_MARKETS, MARKET_LIST, WORDS_LIST, logger } from '../helpers';
+import { CHECK_IF_BURNED, CHECK_IF_FREEZABLE, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_MUTABLE, CHECK_META_WORDS, CHECK_MINTERS, MINTERS_LIST, WORDS_LIST, logger } from '../helpers';
 
 export interface Filter {
   execute(poolKeysV4: LiquidityPoolKeysV4): Promise<FilterResult>;
@@ -37,9 +37,8 @@ export class PoolFilters {
       this.filters.push(new BurnFilter(connection));
     }
 
-    logger.trace(`Success: ${CHECK_MARKETS}`);
-    if (CHECK_MARKETS) {  
-      this.filters.push(new MarketFilter(MARKET_LIST));
+    if (CHECK_MINTERS) {  
+      this.filters.push(new MintersFilter(this.connection, MINTERS_LIST));
     }
 
     if (CHECK_IF_MINT_IS_RENOUNCED || CHECK_IF_FREEZABLE) {

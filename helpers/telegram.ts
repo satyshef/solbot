@@ -1,7 +1,7 @@
 import { logger } from "./logger";
 
 
-export function sendTelegramMessage(chatID:string, token:string, message: string): Boolean {
+export async function sendTelegramMessage(chatID:string, token:string, message: string): Promise<Boolean> {
 
     const url = `https://api.telegram.org/bot${token}/sendMessage`
     const data = {

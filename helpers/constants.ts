@@ -55,8 +55,8 @@ export const FILTER_CHECK_INTERVAL = Number(retrieveEnvVariable('FILTER_CHECK_IN
 export const FILTER_CHECK_DURATION = Number(retrieveEnvVariable('FILTER_CHECK_DURATION', logger));
 export const CONSECUTIVE_FILTER_MATCHES = Number(retrieveEnvVariable('CONSECUTIVE_FILTER_MATCHES', logger));
 
-export const CHECK_MARKETS = retrieveEnvVariable('CHECK_MARKETS', logger) === 'true';
-export const MARKET_LIST: string[] = JSON.parse(retrieveEnvVariable('MARKET_LIST', logger));
+export const CHECK_MINTERS = retrieveEnvVariable('CHECK_MINTERS', logger) === 'true';
+export const MINTERS_LIST: string[] = JSON.parse(retrieveEnvVariable('MINTERS_LIST', logger));
 
 export const WORDS_LIST: string[] = JSON.parse(retrieveEnvVariable('WORDS_LIST', logger));
 

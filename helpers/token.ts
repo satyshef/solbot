@@ -1,6 +1,7 @@
 import { Token } from '@raydium-io/raydium-sdk';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Connection, VersionedTransactionResponse} from '@solana/web3.js';
+
 
 export function getToken(token: string) {
   switch (token) {
@@ -21,3 +22,29 @@ export function getToken(token: string) {
     }
   }
 }
+
+export async function getTokenTransactions(connection: Connection, account: PublicKey): Promise<VersionedTransactionResponse[] | null> {
+  try {
+      // Получение списка подписанных транзакций для указанного аккаунта
+      const confirmedSignatures = await connection.getSignaturesForAddress(account);
+
+      // Получение детализированной информации по каждой транзакции
+      const transactions = [];
+      for (const signatureInfo of confirmedSignatures) {
+          const transaction = await connection.getTransaction(signatureInfo.signature, {
+            maxSupportedTransactionVersion: 0,
+          });
+          if (transaction) {
+              transactions.push(transaction);
+          }
+      }
+
+      return transactions;
+  } catch (error) {
+      console.error("Ошибка при получении транзакций: ", error);
+  }
+
+  return null;
+}
+
+
