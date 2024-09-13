@@ -19,7 +19,7 @@ export class SnipeListCache {
   }
 
   private loadSnipeList() {
-    logger.trace(`Refreshing snipe list...`);
+    //logger.trace(`Refreshing snipe list...`);
 
     const count = this.snipeList.length;
     const data = fs.readFileSync(this.fileLocation, 'utf-8');

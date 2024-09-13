@@ -1,4 +1,3 @@
-import { logger } from "./logger";
 const { parentPort } = require('worker_threads');
 
 interface WorkerData {
@@ -19,7 +18,7 @@ if (parentPort) {
     console.error('Telegram script is not running inside a worker.');
 }
 
-export async function sendTelegramMessage(chatID:string, token:string, message: string): Promise<Boolean> {
+async function sendTelegramMessage(chatID:string, token:string, message: string): Promise<Boolean> {
 
     const url = `https://api.telegram.org/bot${token}/sendMessage`
     const data = {
@@ -36,10 +35,12 @@ export async function sendTelegramMessage(chatID:string, token:string, message: 
         },
         body: JSON.stringify(data)
     });
-    //.then(response => response.json())
-    //.then(result => console.log('Успех:', result))
-    //.catch(error => console.error('Ошибка:', error));
-    logger.trace(`SENT MESSAGE : ${message}`)
-    logger.trace(response)
+
+    console.log(`SENT TG MESSAGE : ${message}`)
+    if ((await response).ok) {
+        return true;
+    }
+    console.log(response)
     return false;
 }
+  

@@ -1,8 +1,8 @@
 import { MarketCache, PoolCache } from './cache';
 import { Listeners } from './listeners';
-import { Connection, KeyedAccountInfo, Keypair, PublicKey } from '@solana/web3.js';
-import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3, Token, TokenAmount, getPdaMetadataKey } from '@raydium-io/raydium-sdk';
-import { AccountLayout, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { Connection, KeyedAccountInfo, Keypair, PublicKey} from '@solana/web3.js';
+import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3, Token, TokenAmount, getPdaMetadataKey} from '@raydium-io/raydium-sdk';
+import { AccountLayout, getAssociatedTokenAddressSync, RawAccount } from '@solana/spl-token';
 import { Bot, BotConfig } from './bot';
 import { DefaultTransactionExecutor, TransactionExecutor } from './transactions';
 import {
@@ -27,9 +27,11 @@ import {
   PRIVATE_KEY,
   USE_SNIPE_LIST,
   ONE_TOKEN_AT_A_TIME,
+  SIMULATION_SELL,
   AUTO_SELL_DELAY,
   MAX_SELL_RETRIES,
   AUTO_SELL,
+  AUTO_BUY,
   MAX_BUY_RETRIES,
   AUTO_BUY_DELAY,
   COMPUTE_UNIT_LIMIT,
@@ -51,6 +53,8 @@ import {
   TELEGRAM_NOTIFICATION,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
+  sleep,
+  getMintInfo,
 } from './helpers';
 import { version } from './package.json';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -181,8 +185,10 @@ const runListener = async () => {
     oneTokenAtATime: ONE_TOKEN_AT_A_TIME,
     useSnipeList: USE_SNIPE_LIST,
     autoSell: AUTO_SELL,
+    simulationSell: SIMULATION_SELL,
     autoSellDelay: AUTO_SELL_DELAY,
     maxSellRetries: MAX_SELL_RETRIES,
+    autoBuy: AUTO_BUY,
     autoBuyDelay: AUTO_BUY_DELAY,
     maxBuyRetries: MAX_BUY_RETRIES,
     unitLimit: COMPUTE_UNIT_LIMIT,
@@ -225,6 +231,8 @@ const runListener = async () => {
     cacheNewMarkets: CACHE_NEW_MARKETS,
   });
 
+  //bot.test();
+  //return;
 
   listeners.on('market', (updatedAccountInfo: KeyedAccountInfo) => {
     const marketState = MARKET_STATE_LAYOUT_V3.decode(updatedAccountInfo.accountInfo.data);
@@ -235,21 +243,40 @@ const runListener = async () => {
     const poolState = LIQUIDITY_STATE_LAYOUT_V4.decode(updatedAccountInfo.accountInfo.data);
     const poolOpenTime = parseInt(poolState.poolOpenTime.toString());
     const exists = await poolCache.get(poolState.baseMint.toString());
-    //logger.trace(`NEW : ${poolState.baseMint.toString()}`)
+   
+    //let minter: string | undefined;
+
     if (!exists && poolOpenTime > runTimestamp) {
-      //logger.trace(poolState);
-      poolCache.save(updatedAccountInfo.accountId.toString(), poolState);
-      await bot.buy(updatedAccountInfo.accountId, poolState);
+      poolCache.save(updatedAccountInfo.accountId.toString(), "null", poolState);
+      if (CHECK_MINTERS){
+        const minter = await getMintInfo(connection, poolState.lpMint);
+        if (minter == undefined){
+          logger.error("Failed get token minter");
+          return;
+        }
+        logger.trace(`Found Minter ${ minter.toString() }`);
+        const minterKey = new PublicKey(minter)
+        poolCache.modifyOwner(updatedAccountInfo.accountId.toString(), minterKey);
+        poolState.owner = minterKey
+      }
+      const success = await bot.buy(updatedAccountInfo.accountId, poolState);
+      if (success && AUTO_SELL && SIMULATION_SELL) {
+        sleep(1000);
+        await bot.sellSemulator(updatedAccountInfo.accountId, poolState);    
+      }
     }
+    
+
   });
 
   listeners.on('wallet', async (updatedAccountInfo: KeyedAccountInfo) => {
+    if (SIMULATION_SELL) {
+      return;
+    }
     const accountData = AccountLayout.decode(updatedAccountInfo.accountInfo.data);
-
     if (accountData.mint.equals(quoteToken.mint)) {
       return;
     }
-
     await bot.sell(updatedAccountInfo.accountId, accountData);
   });
 

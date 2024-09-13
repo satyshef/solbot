@@ -4,8 +4,7 @@ import {
   Keypair,
   PublicKey,
   TransactionMessage,
-  VersionedTransaction,
-  VersionedTransactionResponse
+  VersionedTransaction
 } from '@solana/web3.js';
 import {
   createAssociatedTokenAccountIdempotentInstruction,
@@ -15,7 +14,7 @@ import {
   RawAccount,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
-import { Liquidity, LiquidityPoolKeysV4, LiquidityStateV4, Percent, Token, TokenAmount } from '@raydium-io/raydium-sdk';
+import { Liquidity, LiquidityPoolKeysV4, LiquidityStateV4, Percent, Token, TokenAmount, CurrencyAmount, LiquidityComputeAmountOutParams } from '@raydium-io/raydium-sdk';
 import { MarketCache, PoolCache, SnipeListCache } from './cache';
 import { PoolFilters } from './filters';
 import { TransactionExecutor } from './transactions';
@@ -24,7 +23,10 @@ import { Mutex } from 'async-mutex';
 import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
-import { sendTelegramMessage } from './helpers/telegram';
+//import { sendTelegramMessage } from './helpers/telegram';
+import { saveToFile } from './helpers/file';
+import path from 'path';
+import { Worker } from 'worker_threads';
 
 export interface BotConfig {
   wallet: Keypair;
@@ -41,6 +43,8 @@ export interface BotConfig {
   oneTokenAtATime: boolean;
   useSnipeList: boolean;
   autoSell: boolean;
+  autoBuy: boolean;
+  simulationSell: boolean;
   autoBuyDelay: number;
   autoSellDelay: number;
   maxBuyRetries: number;
@@ -76,6 +80,11 @@ export class Bot {
   public readonly isWarp: boolean = false;
   public readonly isJito: boolean = false;
 
+  //private tgWorker: Worker | undefined;
+  private tgWorker = new Worker(path.resolve(__dirname, './helpers/telegram.ts'), {
+    execArgv: ['-r', 'ts-node/register'], 
+  });
+
   constructor(
     private readonly connection: Connection,
     private readonly marketStorage: MarketCache,
@@ -83,6 +92,14 @@ export class Bot {
     private readonly txExecutor: TransactionExecutor,
     readonly config: BotConfig,
   ) {
+
+    /*
+   
+    const this.tgWorker = new Worker(path.resolve(__dirname, './helpers/tg.ts'), {
+      execArgv: ['-r', 'ts-node/register'], // Подключаем ts-node для worker'а
+    });
+    */
+
     this.isWarp = txExecutor instanceof WarpTransactionExecutor;
     this.isJito = txExecutor instanceof JitoTransactionExecutor;
 
@@ -112,14 +129,14 @@ export class Bot {
     return true;
   }
 
-  public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
+  public async buy(accountId: PublicKey, poolState: LiquidityStateV4): Promise<Boolean> {
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
-
     //this.getMintInfo(poolState)
 
-    if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
+    //if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
+    if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.owner.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
-      return;
+      return false;
     }
 
     if (this.config.autoBuyDelay > 0) {
@@ -133,11 +150,13 @@ export class Bot {
           { mint: poolState.baseMint.toString() },
           `Skipping buy because one token at a time is turned on and token is already being processed`,
         );
-        return;
+        return false;
       }
 
       await this.mutex.acquire();
     }
+
+    let success = false;
 
     try {
       const [market, mintAta] = await Promise.all([
@@ -152,8 +171,13 @@ export class Bot {
 
         if (!match) {
           logger.trace({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
-          return;
+          return false;
         }
+      }
+
+      if (!this.config.autoBuy) {
+        logger.trace("Skip autobuy");
+        return true;
       }
 
       for (let i = 0; i < this.config.maxBuyRetries; i++) {
@@ -181,7 +205,8 @@ export class Bot {
 
             if (this.config.telegramNotification) {
               const message = `#BUY\n\n${ poolState.baseMint.toString() }\n\n${ solurl }`
-              await sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
+              //await sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message)
+              this.tgWorker.postMessage({ chatID: this.config.telegramChatID, token: this.config.telegramBotToken, message: message });
             }
             logger.info(
               {
@@ -191,7 +216,7 @@ export class Bot {
               },
               `Confirmed buy tx`,
             );
-
+            success = true;
             break;
           }
           
@@ -205,15 +230,19 @@ export class Bot {
           );
         } catch (error) {
           logger.debug({ mint: poolState.baseMint.toString(), error }, `Error confirming buy transaction`);
+          success = false;
         }
       }
     } catch (error) {
       logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to buy token`);
+      success = false;
     } finally {
       if (this.config.oneTokenAtATime) {
         this.mutex.release();
       }
     }
+
+    return success;
   }
 
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
@@ -223,15 +252,15 @@ export class Bot {
 
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
-
       const poolData = await this.poolStorage.get(rawAccount.mint.toString());
-
       if (!poolData) {
         logger.trace({rawAccount})
         logger.trace({ mint: rawAccount.mint.toString() }, `Token pool data is not found, can't sell`);
         return;
       }
 
+      
+    
       const tokenIn = new Token(TOKEN_PROGRAM_ID, poolData.state.baseMint, poolData.state.baseDecimal.toNumber());
       const tokenAmountIn = new TokenAmount(tokenIn, rawAccount.amount, true);
 
@@ -248,10 +277,20 @@ export class Bot {
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.id), poolData.state, market);
 
-      await this.runListenerSpaceKey();
+      logger.error('SELL POOL')
+      logger.trace(poolData)
+
       const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
-      this.stopListenerSpaceKey();
-         
+          
+      const path = `/Users/outsider/tmp/tokens/${poolData.state.owner.toString()}`;
+      await saveToFile(path, amountOut+"\n");
+
+      if (this.config.simulationSell) {
+        //logger.debug(`FAKE SELL : ${amountOut}`);
+        logger.debug(`FAKE SELL SUCCESS`);
+        return;
+      }
+
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
           logger.info(
@@ -271,10 +310,12 @@ export class Bot {
             'sell',
           );
 
+          
           if (result.confirmed) {
             if (this.config.telegramNotification) {
-              const message = `#SELL\n\n${rawAccount.mint.toString()}\n\nPRICE : ${amountOut}`;
-              sendTelegramMessage(this.config.telegramChatID, this.config.telegramBotToken, message);
+              //const message = `#SELL\n\n${rawAccount.mint.toString()}\n\nPRICE : ${amountOut}`;
+              const message = `#SELL\n\n${rawAccount.mint.toString()}`;
+              this.tgWorker.postMessage({ chatID: this.config.telegramChatID, token: this.config.telegramBotToken, message: message });
             }
 
             logger.info(
@@ -308,6 +349,68 @@ export class Bot {
         this.sellExecutionCount--;
       }
     }
+  }
+
+  public async sellSemulator(accountId: PublicKey, poolState: LiquidityStateV4){
+    
+    const amountOut = await this.computeAmountOut(accountId, poolState);
+    if (amountOut){
+        const rawAccount: RawAccount = {
+          mint: poolState.baseMint,
+          owner: this.config.wallet.publicKey,
+          amount: BigInt(amountOut.numerator.toNumber()),
+          delegateOption: 0,          
+          delegate: PublicKey.default,
+          state: 1,
+          isNativeOption: 0,
+          isNative: BigInt(0),
+          delegatedAmount: BigInt(0),
+          closeAuthorityOption: 0,
+          closeAuthority: PublicKey.default
+        };
+        await this.sell(accountId, rawAccount);
+    }
+  }
+
+  public async computeAmountOut(
+    accountId: PublicKey, 
+    poolState: LiquidityStateV4
+  ): Promise<TokenAmount | CurrencyAmount | undefined> {
+
+    try{
+      const [market] = await Promise.all([
+        this.marketStorage.get(poolState.marketId.toString()),
+        getAssociatedTokenAddress(poolState.baseMint, this.config.wallet.publicKey),
+      ]);
+
+      const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(accountId, poolState, market);
+      const tokenOut = new Token(TOKEN_PROGRAM_ID, poolKeys.baseMint, poolKeys.baseDecimals);
+
+      const slippagePercent = new Percent(this.config.buySlippage, 100);
+      const poolInfo = await Liquidity.fetchInfo({
+        connection: this.connection,
+        poolKeys,
+      });
+
+      const computedAmountOut = Liquidity.computeAmountOut({
+        poolKeys,
+        poolInfo,
+        amountIn: this.config.quoteAmount,
+        currencyOut: tokenOut,
+        slippage: slippagePercent,
+      });
+      //computedAmountOut.amountOut.numerator.toNumber()
+      return computedAmountOut.amountOut
+
+    }catch (error) {
+      //const e = JSON.parse(String(error));
+      logger.error({ mint: poolState.baseMint.toString(), error }, `Compute Amount Out`);
+      //logger.error(`Compute Amount Out ${poolState.baseMint.toString()} : ${e["message"]} `);
+    }
+
+    return undefined;
+    
+
   }
 
   // noinspection JSUnusedLocalSymbols
@@ -418,10 +521,20 @@ export class Bot {
     return false;
   }
 
+  public test(){
+    logger.trace("TEST");
+    const lossFraction = this.config.quoteAmount.mul(this.config.stopLoss).numerator.div(new BN(100));
+    const lossAmount = new TokenAmount(this.config.quoteToken, lossFraction, true);
+    const stopLoss = this.config.quoteAmount.subtract(lossAmount);
+    logger.trace(lossAmount.toFixed());
+  }
+
   private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4): Promise<String | undefined>{
     if (this.config.priceCheckDuration === 0 || this.config.priceCheckInterval === 0) {
       return undefined;
     }
+
+    await this.runListenerSpaceKey();
 
     const timesToCheck = this.config.priceCheckDuration / this.config.priceCheckInterval;
     const profitFraction = this.config.quoteAmount.mul(this.config.takeProfit).numerator.div(new BN(100));
@@ -432,7 +545,11 @@ export class Bot {
     const lossAmount = new TokenAmount(this.config.quoteToken, lossFraction, true);
     const stopLoss = this.config.quoteAmount.subtract(lossAmount);
     const slippage = new Percent(this.config.sellSlippage, 100);
+
+    
+    let amountOut: TokenAmount | CurrencyAmount = new TokenAmount(this.config.quoteToken, new BN(10000), true);
     let timesChecked = 0;
+    let result: string = "";
 
     do {
       try {
@@ -441,13 +558,26 @@ export class Bot {
           poolKeys,
         });
 
-        const amountOut = Liquidity.computeAmountOut({
+        amountOut = Liquidity.computeAmountOut({
           poolKeys,
           poolInfo,
           amountIn: amountIn,
           currencyOut: this.config.quoteToken,
           slippage,
         }).amountOut;
+        
+        result += amountOut.toFixed()+" ";
+         //---------------------------------
+         
+         
+        //const lossAmount2 = new TokenAmount(this.config.quoteToken, amountOut.toFixed(), true);
+        const stopLoss2 = amountOut.sub(lossAmount);
+        //const stopLoss2 = this.config.quoteAmount.subtract(lossAmount2);
+        //logger.error(`lossAmount2  : ${ lossAmount2.toFixed() }`);
+        logger.error(`stopLoss2   : ${ stopLoss2.toFixed() }`);
+        
+        //const stopLoss = this.config.quoteAmount.subtract(amountOut);
+         //---------------------------------
 
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
@@ -456,17 +586,15 @@ export class Bot {
 
         if (this.pressSpace){
           this.pressSpace = false;
-          return amountOut.toFixed();
+          break;
         }
 
         if (amountOut.lt(stopLoss)) {
-          //break;
-          return amountOut.toFixed();
+          break;
         }
 
         if (amountOut.gt(takeProfit)) {
-          //break;
-          return amountOut.toFixed();
+          break;
         }
 
         await sleep(this.config.priceCheckInterval);
@@ -476,6 +604,11 @@ export class Bot {
         timesChecked++;
       }
     } while (timesChecked < timesToCheck);
+
+    this.stopListenerSpaceKey();
+
+    return result;
+
   }
 
 

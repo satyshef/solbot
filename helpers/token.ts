@@ -23,7 +23,7 @@ export function getToken(token: string) {
   }
 }
 
-export async function getTokenTransactions(connection: Connection, account: PublicKey): Promise<VersionedTransactionResponse[] | null> {
+export async function getTokenTransactions(connection: Connection, account: PublicKey): Promise<VersionedTransactionResponse[] | undefined> {
   try {
       // Получение списка подписанных транзакций для указанного аккаунта
       const confirmedSignatures = await connection.getSignaturesForAddress(account);
@@ -44,7 +44,29 @@ export async function getTokenTransactions(connection: Connection, account: Publ
       console.error("Ошибка при получении транзакций: ", error);
   }
 
-  return null;
+  return undefined;
 }
 
+
+export async function getMintInfo(connection: Connection, accountId: PublicKey): Promise<string | undefined>{
+  //logger.trace(`LP token: ${poolKeys.lpMint}`);
+  //const transactions
+  //const transactions: VersionedTransactionResponse[] | undefined
+  const transactions =  await getTokenTransactions(connection, accountId)
+  
+  if (transactions == undefined){
+    return undefined;
+  }
+
+  const transaction: VersionedTransactionResponse = transactions[0];
+
+  if (
+    transaction.meta != undefined &&
+    transaction.meta.preTokenBalances != null
+  ){
+    return transaction.meta.preTokenBalances[1].owner
+  }
+  return undefined;
+  
+}
 

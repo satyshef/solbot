@@ -3,7 +3,6 @@ import { Connection, TransactionInstruction } from '@solana/web3.js';
 import { LiquidityPoolKeysV4 } from '@raydium-io/raydium-sdk';
 import { logger, getTokenTransactions } from '../helpers';
 
-
 export class MintersFilter implements Filter {
   
   private readonly errorMessage: string[] = [];
@@ -53,9 +52,6 @@ export class MintersFilter implements Filter {
       }
       return undefined;
     });
-    
-
-    // && transactions[0].meta.preTokenBalances[1] != null
   }
 
   private async checkRisk(mint: String) {

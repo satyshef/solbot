@@ -34,6 +34,7 @@ export const TRANSACTION_EXECUTOR = retrieveEnvVariable('TRANSACTION_EXECUTOR', 
 export const CUSTOM_FEE = retrieveEnvVariable('CUSTOM_FEE', logger);
 
 // Buy
+export const AUTO_BUY = retrieveEnvVariable('AUTO_BUY', logger) === 'true';
 export const AUTO_BUY_DELAY = Number(retrieveEnvVariable('AUTO_BUY_DELAY', logger));
 export const QUOTE_MINT = retrieveEnvVariable('QUOTE_MINT', logger);
 export const QUOTE_AMOUNT = retrieveEnvVariable('QUOTE_AMOUNT', logger);
@@ -42,6 +43,7 @@ export const BUY_SLIPPAGE = Number(retrieveEnvVariable('BUY_SLIPPAGE', logger));
 
 // Sell
 export const AUTO_SELL = retrieveEnvVariable('AUTO_SELL', logger) === 'true';
+export const SIMULATION_SELL = retrieveEnvVariable('SIMULATION_SELL', logger) === 'true';
 export const AUTO_SELL_DELAY = Number(retrieveEnvVariable('AUTO_SELL_DELAY', logger));
 export const MAX_SELL_RETRIES = Number(retrieveEnvVariable('MAX_SELL_RETRIES', logger));
 export const TAKE_PROFIT = Number(retrieveEnvVariable('TAKE_PROFIT', logger));
