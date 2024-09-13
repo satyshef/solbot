@@ -24,7 +24,7 @@ import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
 //import { sendTelegramMessage } from './helpers/telegram';
-import { saveToFile } from './helpers/file';
+import { appendToFile } from './helpers/file';
 import path from 'path';
 import { Worker } from 'worker_threads';
 
@@ -283,7 +283,7 @@ export class Bot {
       const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
           
       const path = __dirname + `/history/${poolData.state.owner.toString()}`;
-      await saveToFile(path, amountOut+"\n");
+      await appendToFile(path, amountOut+"\n");
 
       if (this.config.simulationSell) {
         //logger.debug(`FAKE SELL : ${amountOut}`);
