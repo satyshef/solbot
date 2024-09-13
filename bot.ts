@@ -277,12 +277,12 @@ export class Bot {
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.id), poolData.state, market);
 
-      logger.error('SELL POOL')
-      logger.trace(poolData)
+      //logger.error('SELL POOL')
+      //logger.trace(poolData)
 
       const amountOut = await this.priceMatch(tokenAmountIn, poolKeys);
           
-      const path = `/Users/outsider/tmp/tokens/${poolData.state.owner.toString()}`;
+      const path = __dirname + `/history/${poolData.state.owner.toString()}`;
       await saveToFile(path, amountOut+"\n");
 
       if (this.config.simulationSell) {
@@ -567,17 +567,13 @@ export class Bot {
         }).amountOut;
         
         result += amountOut.toFixed()+" ";
-         //---------------------------------
+        
+        //---------------------------------
          
-         
-        //const lossAmount2 = new TokenAmount(this.config.quoteToken, amountOut.toFixed(), true);
         const stopLoss2 = amountOut.sub(lossAmount);
-        //const stopLoss2 = this.config.quoteAmount.subtract(lossAmount2);
-        //logger.error(`lossAmount2  : ${ lossAmount2.toFixed() }`);
         logger.error(`stopLoss2   : ${ stopLoss2.toFixed() }`);
         
-        //const stopLoss = this.config.quoteAmount.subtract(amountOut);
-         //---------------------------------
+        //---------------------------------
 
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
