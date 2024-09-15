@@ -1,6 +1,7 @@
 import { Token } from '@raydium-io/raydium-sdk';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { PublicKey, Connection, VersionedTransactionResponse} from '@solana/web3.js';
+import { logger } from './logger';
 
 
 export function getToken(token: string) {
@@ -58,13 +59,19 @@ export async function getMintInfo(connection: Connection, accountId: PublicKey):
     return undefined;
   }
 
+  
   const transaction: VersionedTransactionResponse = transactions[0];
 
   if (
     transaction.meta != undefined &&
     transaction.meta.preTokenBalances != null
   ){
-    return transaction.meta.preTokenBalances[1].owner
+    if (transaction.meta.preTokenBalances.length > 1 ){
+      return transaction.meta.preTokenBalances[1].owner;
+    }
+
+    logger.error(transaction.meta);
+
   }
   return undefined;
   

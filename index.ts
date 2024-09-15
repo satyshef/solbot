@@ -248,6 +248,7 @@ const runListener = async () => {
 
     if (!exists && poolOpenTime > runTimestamp) {
       poolCache.save(updatedAccountInfo.accountId.toString(), "null", poolState);
+      
       if (CHECK_MINTERS){
         const minter = await getMintInfo(connection, poolState.lpMint);
         if (minter == undefined){
