@@ -8,7 +8,7 @@ import { PoolSizeFilter } from './pool-size.filter';
 import { MintersFilter } from './minter.filter';
 import { MetaWordsFilter } from './meta_words.filter';
 
-import { CHECK_IF_BURNED, CHECK_IF_FREEZABLE, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_MUTABLE, CHECK_META_WORDS, CHECK_MINTERS, MINTERS_LIST, WORDS_LIST, logger } from '../helpers';
+import { CHECK_IF_BURNED, CHECK_IF_FREEZABLE, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_MUTABLE, CHECK_META_WORDS, WORDS_LIST, logger } from '../helpers';
 
 export interface Filter {
   execute(poolKeysV4: LiquidityPoolKeysV4): Promise<FilterResult>;
@@ -37,9 +37,11 @@ export class PoolFilters {
       this.filters.push(new BurnFilter(connection));
     }
 
-    if (CHECK_MINTERS) {  
+    /*
+    if (LOAD_MINTERS) {  
       this.filters.push(new MintersFilter(this.connection, MINTERS_LIST));
     }
+    */
 
     if (CHECK_IF_MINT_IS_RENOUNCED || CHECK_IF_FREEZABLE) {
       this.filters.push(new RenouncedFreezeFilter(connection, CHECK_IF_MINT_IS_RENOUNCED, CHECK_IF_FREEZABLE));

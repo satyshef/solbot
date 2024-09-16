@@ -43,7 +43,7 @@ export const BUY_SLIPPAGE = Number(retrieveEnvVariable('BUY_SLIPPAGE', logger));
 
 // Sell
 export const AUTO_SELL = retrieveEnvVariable('AUTO_SELL', logger) === 'true';
-export const SIMULATION_SELL = retrieveEnvVariable('SIMULATION_SELL', logger) === 'true';
+export const SIMULATION_MODE = retrieveEnvVariable('SIMULATION_MODE', logger) === 'true';
 export const AUTO_SELL_DELAY = Number(retrieveEnvVariable('AUTO_SELL_DELAY', logger));
 export const MAX_SELL_RETRIES = Number(retrieveEnvVariable('MAX_SELL_RETRIES', logger));
 export const TAKE_PROFIT = Number(retrieveEnvVariable('TAKE_PROFIT', logger));
@@ -57,8 +57,8 @@ export const FILTER_CHECK_INTERVAL = Number(retrieveEnvVariable('FILTER_CHECK_IN
 export const FILTER_CHECK_DURATION = Number(retrieveEnvVariable('FILTER_CHECK_DURATION', logger));
 export const CONSECUTIVE_FILTER_MATCHES = Number(retrieveEnvVariable('CONSECUTIVE_FILTER_MATCHES', logger));
 
-export const CHECK_MINTERS = retrieveEnvVariable('CHECK_MINTERS', logger) === 'true';
-export const MINTERS_LIST: string[] = JSON.parse(retrieveEnvVariable('MINTERS_LIST', logger));
+export const LOAD_MINTERS = retrieveEnvVariable('LOAD_MINTERS', logger) === 'true';
+//export const MINTERS_LIST: string[] = JSON.parse(retrieveEnvVariable('MINTERS_LIST', logger));
 
 export const WORDS_LIST: string[] = JSON.parse(retrieveEnvVariable('WORDS_LIST', logger));
 

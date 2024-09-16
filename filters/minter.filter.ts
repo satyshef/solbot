@@ -18,7 +18,7 @@ export class MintersFilter implements Filter {
       const minter = await this.getMintInfo(poolKeys);
       logger.trace(`Minter : ${ minter }`);
       if (minter == undefined){
-        return { ok: false, message: "CheckMinters -> Failed get LP token owner" };
+        return { ok: false, message: "loadMinters -> Failed get LP token owner" };
       }
 
       for (let i = 0; i < this.mintersList.length; i++) {
@@ -27,7 +27,7 @@ export class MintersFilter implements Filter {
         }
       }
 
-      return { ok: false, message: "CheckMinters -> Minter not found" };
+      return { ok: false, message: "loadMinters -> Minter not found" };
 
     } catch (e: any) {
         logger.error(

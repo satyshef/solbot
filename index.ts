@@ -18,8 +18,7 @@ import {
   CHECK_IF_MINT_IS_RENOUNCED,
   CHECK_IF_FREEZABLE,
   CHECK_IF_BURNED,
-  CHECK_MINTERS,
-  MINTERS_LIST,
+  LOAD_MINTERS,
   QUOTE_MINT,
   MAX_POOL_SIZE,
   MIN_POOL_SIZE,
@@ -27,7 +26,7 @@ import {
   PRIVATE_KEY,
   USE_SNIPE_LIST,
   ONE_TOKEN_AT_A_TIME,
-  SIMULATION_SELL,
+  SIMULATION_MODE,
   AUTO_SELL_DELAY,
   MAX_SELL_RETRIES,
   AUTO_SELL,
@@ -185,7 +184,7 @@ const runListener = async () => {
     oneTokenAtATime: ONE_TOKEN_AT_A_TIME,
     useSnipeList: USE_SNIPE_LIST,
     autoSell: AUTO_SELL,
-    simulationSell: SIMULATION_SELL,
+    simulationMode: SIMULATION_MODE,
     autoSellDelay: AUTO_SELL_DELAY,
     maxSellRetries: MAX_SELL_RETRIES,
     autoBuy: AUTO_BUY,
@@ -203,8 +202,7 @@ const runListener = async () => {
     filterCheckDuration: FILTER_CHECK_DURATION,
     consecutiveMatchCount: CONSECUTIVE_FILTER_MATCHES,
     checkWords: WORDS_LIST,
-    checkMinters: CHECK_MINTERS,
-    marketList: MINTERS_LIST,
+    loadMinters: LOAD_MINTERS,
     telegramNotification: TELEGRAM_NOTIFICATION,
     telegramBotToken: TELEGRAM_BOT_TOKEN,
     telegramChatID: TELEGRAM_CHAT_ID,
@@ -224,10 +222,15 @@ const runListener = async () => {
 
   const runTimestamp = Math.floor(new Date().getTime() / 1000);
   const listeners = new Listeners(connection);
+  let autoSell = AUTO_SELL;
+  if (SIMULATION_MODE){
+    autoSell = false;
+  }
+
   await listeners.start({
     walletPublicKey: wallet.publicKey,
     quoteToken,
-    autoSell: AUTO_SELL,
+    autoSell: autoSell,
     cacheNewMarkets: CACHE_NEW_MARKETS,
   });
 
@@ -249,7 +252,7 @@ const runListener = async () => {
     if (!exists && poolOpenTime > runTimestamp) {
       poolCache.save(updatedAccountInfo.accountId.toString(), "null", poolState);
       
-      if (CHECK_MINTERS){
+      if (LOAD_MINTERS){
         const minter = await getMintInfo(connection, poolState.lpMint);
         if (minter == undefined){
           logger.error("Failed get token minter");
@@ -260,8 +263,13 @@ const runListener = async () => {
         poolCache.modifyOwner(updatedAccountInfo.accountId.toString(), minterKey);
         poolState.owner = minterKey
       }
-      const success = await bot.buy(updatedAccountInfo.accountId, poolState);
-      if (success && AUTO_SELL && SIMULATION_SELL) {
+
+      let success: Boolean = true;
+      if (AUTO_BUY){
+        success = await bot.buy(updatedAccountInfo.accountId, poolState);
+      }
+      
+      if (success && AUTO_SELL && SIMULATION_MODE) {
         sleep(1000);
         await bot.sellSemulator(updatedAccountInfo.accountId, poolState);    
       }
@@ -271,7 +279,7 @@ const runListener = async () => {
   });
 
   listeners.on('wallet', async (updatedAccountInfo: KeyedAccountInfo) => {
-    if (SIMULATION_SELL) {
+    if (SIMULATION_MODE) {
       return;
     }
     const accountData = AccountLayout.decode(updatedAccountInfo.accountInfo.data);

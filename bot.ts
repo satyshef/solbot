@@ -33,7 +33,7 @@ export interface BotConfig {
   checkRenounced: boolean;
   checkFreezable: boolean;
   checkBurned: boolean;
-  checkMinters: boolean;
+  loadMinters: boolean;
   marketList: string[];
   minPoolSize: TokenAmount;
   maxPoolSize: TokenAmount;
@@ -44,7 +44,7 @@ export interface BotConfig {
   useSnipeList: boolean;
   autoSell: boolean;
   autoBuy: boolean;
-  simulationSell: boolean;
+  simulationMode: boolean;
   autoBuyDelay: number;
   autoSellDelay: number;
   maxBuyRetries: number;
@@ -175,7 +175,7 @@ export class Bot {
         }
       }
 
-      if (!this.config.autoBuy) {
+      if (this.config.simulationMode) {
         logger.trace("Skip autobuy");
         return true;
       }
@@ -285,7 +285,7 @@ export class Bot {
       const path = __dirname + `/history/${poolData.state.owner.toString()}`;
       await appendToFile(path, amountOut+"\n");
 
-      if (this.config.simulationSell) {
+      if (this.config.simulationMode) {
         //logger.debug(`FAKE SELL : ${amountOut}`);
         logger.debug(`FAKE SELL SUCCESS`);
         return;
@@ -353,23 +353,27 @@ export class Bot {
 
   public async sellSemulator(accountId: PublicKey, poolState: LiquidityStateV4){
     
-    const amountOut = await this.computeAmountOut(accountId, poolState);
-    if (amountOut){
-        const rawAccount: RawAccount = {
-          mint: poolState.baseMint,
-          owner: this.config.wallet.publicKey,
-          amount: BigInt(amountOut.numerator.toNumber()),
-          delegateOption: 0,          
-          delegate: PublicKey.default,
-          state: 1,
-          isNativeOption: 0,
-          isNative: BigInt(0),
-          delegatedAmount: BigInt(0),
-          closeAuthorityOption: 0,
-          closeAuthority: PublicKey.default
-        };
-        await this.sell(accountId, rawAccount);
-    }
+    try{
+      const amountOut = await this.computeAmountOut(accountId, poolState);
+      if (amountOut){
+          const rawAccount: RawAccount = {
+            mint: poolState.baseMint,
+            owner: this.config.wallet.publicKey,
+            amount: BigInt(amountOut.numerator.toNumber()),
+            delegateOption: 0,          
+            delegate: PublicKey.default,
+            state: 1,
+            isNativeOption: 0,
+            isNative: BigInt(0),
+            delegatedAmount: BigInt(0),
+            closeAuthorityOption: 0,
+            closeAuthority: PublicKey.default
+          };
+          await this.sell(accountId, rawAccount);
+      }
+    } catch(e){
+      logger.error(`Fail make simulation : ${e}`);
+    };
   }
 
   public async computeAmountOut(
