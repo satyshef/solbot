@@ -61,8 +61,8 @@ export async function getMintInfo(connection: Connection, accountId: PublicKey):
 
   
   const transaction: VersionedTransactionResponse = transactions[0];
-
   if (
+    transaction?.meta &&
     transaction.meta != undefined &&
     transaction.meta.preTokenBalances != null
   ){

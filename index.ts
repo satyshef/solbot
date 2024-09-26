@@ -58,6 +58,7 @@ import {
 import { version } from './package.json';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
+import { Transactor, Swap } from './listeners/transactor';
 
 const connection = new Connection(RPC_ENDPOINT, {
   wsEndpoint: RPC_WEBSOCKET_ENDPOINT,
@@ -234,8 +235,20 @@ const runListener = async () => {
     cacheNewMarkets: CACHE_NEW_MARKETS,
   });
 
+/*
+  const trans = new Transactor(connection);
+  const swap: Swap = {
+    signature: "1111",
+    owner: owner,
+    mint: programId,
+    amount: amount, 
+    time: currentTime,
+  };
+  
+  this.addSwap(swap);
   //bot.test();
-  //return;
+  return;
+  */
 
   listeners.on('market', (updatedAccountInfo: KeyedAccountInfo) => {
     const marketState = MARKET_STATE_LAYOUT_V3.decode(updatedAccountInfo.accountInfo.data);
@@ -246,9 +259,10 @@ const runListener = async () => {
     const poolState = LIQUIDITY_STATE_LAYOUT_V4.decode(updatedAccountInfo.accountInfo.data);
     const poolOpenTime = parseInt(poolState.poolOpenTime.toString());
     const exists = await poolCache.get(poolState.baseMint.toString());
-   
-    //let minter: string | undefined;
-
+  
+    //logger.trace(poolState);
+    //return;
+    
     if (!exists && poolOpenTime > runTimestamp) {
       poolCache.save(updatedAccountInfo.accountId.toString(), "null", poolState);
       
@@ -264,9 +278,11 @@ const runListener = async () => {
         poolState.owner = minterKey
       }
 
-      let success: Boolean = true;
+      let success: Boolean = false;
       if (AUTO_BUY){
         success = await bot.buy(updatedAccountInfo.accountId, poolState);
+      } else {
+        success = true;
       }
       
       if (success && AUTO_SELL && SIMULATION_MODE) {
@@ -274,7 +290,7 @@ const runListener = async () => {
         await bot.sellSemulator(updatedAccountInfo.accountId, poolState);    
       }
     }
-    
+
 
   });
 

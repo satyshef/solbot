@@ -27,6 +27,7 @@ import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-exe
 import { appendToFile } from './helpers/file';
 import path from 'path';
 import { Worker } from 'worker_threads';
+import { Transactor, ProgramEvent, Swap } from './listeners/transactor';
 
 export interface BotConfig {
   wallet: Keypair;
@@ -80,6 +81,7 @@ export class Bot {
   public readonly isWarp: boolean = false;
   public readonly isJito: boolean = false;
 
+  private transactor: Transactor;
   //private tgWorker: Worker | undefined;
   private tgWorker = new Worker(path.resolve(__dirname, './helpers/telegram.ts'), {
     execArgv: ['-r', 'ts-node/register'], 
@@ -93,12 +95,7 @@ export class Bot {
     readonly config: BotConfig,
   ) {
 
-    /*
-   
-    const this.tgWorker = new Worker(path.resolve(__dirname, './helpers/tg.ts'), {
-      execArgv: ['-r', 'ts-node/register'], // Подключаем ts-node для worker'а
-    });
-    */
+    this.transactor = new Transactor(connection);
 
     this.isWarp = txExecutor instanceof WarpTransactionExecutor;
     this.isJito = txExecutor instanceof JitoTransactionExecutor;
@@ -246,9 +243,6 @@ export class Bot {
   }
 
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
-    if (this.config.oneTokenAtATime) {
-      this.sellExecutionCount++;
-    }
 
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
@@ -259,8 +253,6 @@ export class Bot {
         return;
       }
 
-      
-    
       const tokenIn = new Token(TOKEN_PROGRAM_ID, poolData.state.baseMint, poolData.state.baseDecimal.toNumber());
       const tokenAmountIn = new TokenAmount(tokenIn, rawAccount.amount, true);
 
@@ -348,6 +340,21 @@ export class Bot {
       if (this.config.oneTokenAtATime) {
         this.sellExecutionCount--;
       }
+    }
+  }
+
+
+  public async getTransactionDetails(signature: string) {
+    const transaction = await this.connection.getTransaction(signature, { commitment: "confirmed" });
+  
+    if (transaction) {
+      console.log("Transaction details:", transaction);
+      const innerInstructions = transaction.transaction.message.instructions;
+      innerInstructions.forEach((instruction, index) => {
+        console.log(`Instruction ${index}:`, instruction);
+      });
+    } else {
+      console.log("Transaction not found");
     }
   }
 
@@ -525,13 +532,6 @@ export class Bot {
     return false;
   }
 
-  public test(){
-    logger.trace("TEST");
-    const lossFraction = this.config.quoteAmount.mul(this.config.stopLoss).numerator.div(new BN(100));
-    const lossAmount = new TokenAmount(this.config.quoteToken, lossFraction, true);
-    const stopLoss = this.config.quoteAmount.subtract(lossAmount);
-    logger.trace(lossAmount.toFixed());
-  }
 
   private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4): Promise<String | undefined>{
     if (this.config.priceCheckDuration === 0 || this.config.priceCheckInterval === 0) {
@@ -550,7 +550,7 @@ export class Bot {
     const stopLoss = this.config.quoteAmount.subtract(lossAmount);
     const slippage = new Percent(this.config.sellSlippage, 100);
 
-    
+  
     let amountOut: TokenAmount | CurrencyAmount = new TokenAmount(this.config.quoteToken, new BN(10000), true);
     let timesChecked = 0;
     let result: string = "";
@@ -570,21 +570,20 @@ export class Bot {
           slippage,
         }).amountOut;
         
-        result += amountOut.toFixed()+" ";
-        
-        //---------------------------------
-         
-        const stopLoss2 = amountOut.sub(lossAmount);
-        logger.error(`stopLoss2   : ${ stopLoss2.toFixed() }`);
-        
-        //---------------------------------
-
         logger.debug(
           { mint: poolKeys.baseMint.toString() },
           `Take profit: ${takeProfit.toFixed()} | Stop loss: ${stopLoss.toFixed()} | Current: ${amountOut.toFixed()}`,
         );
+        
+        result += amountOut.toFixed()+" ";
 
         if (this.pressSpace){
+          /*
+          const buys = this.transactor.getBuys();
+          console.log(buys.length);
+          const sells = this.transactor.getSells();
+          console.log(sells.length);
+          */
           this.pressSpace = false;
           break;
         }
