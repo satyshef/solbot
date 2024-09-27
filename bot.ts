@@ -243,6 +243,9 @@ export class Bot {
   }
 
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
+    if (this.config.oneTokenAtATime) {
+      this.sellExecutionCount++;
+    }
 
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
